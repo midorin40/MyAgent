@@ -1,0 +1,30 @@
+# ===========================
+# Universal Agent Hub .gitignore
+# ===========================
+
+# --- Session-specific data ---
+logs/
+completed/
+__pycache__/
+artifacts/task*/
+
+# --- File-based Orchestration (deer-flow) ---
+orders/*
+!orders/.gitkeep
+processing/*
+!processing/.gitkeep
+results/*
+!results/.gitkeep
+
+# --- Artifacts (keep structure, ignore contents) ---
+artifacts/screen/*
+artifacts/logs/*
+artifacts/drafts/*
+artifacts/questions/*
+!artifacts/screen/.gitkeep
+!artifacts/logs/.gitkeep
+!artifacts/drafts/.gitkeep
+!artifacts/questions/.gitkeep
+
+# --- Runtime task state (use task_template.md instead) ---
+task.md

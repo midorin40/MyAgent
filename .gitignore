@@ -1,0 +1,18 @@
+# ===========================
+# Root .gitignore
+# ===========================
+
+# Session-generated files
+hello_sandbox.py
+package-lock.json
+Sandbox.Dockerfile
+
+# OpenSandbox runtime (built by setup_sandbox.py)
+OpenSandbox/
+
+# Node
+node_modules/
+
+# OS
+Thumbs.db
+.DS_Store
