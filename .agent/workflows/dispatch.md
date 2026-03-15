@@ -1,15 +1,18 @@
 ---
-description: 計画に基づき、各エージェント向けの指示書ファイル（オーダー）を発行します
+description: Dispatch static and dynamic tasks to worker agents.
 ---
 
-# マルチエージェント配備（Dispatch）ワークフロー【ファイル経由版】
+# Dispatch Workflow
 
-このワークフローは、deer-flow 型の非同期マルチエージェント・オーケストレーションの「Phase 1（配備）」を実行します。
+## Static dispatch
+1. Read `.agent/task.md`.
+2. For each task whose dependencies are complete, create an order file in `.agent/orders`.
+3. Mark the task as in progress in `.agent/task.md`.
+4. When the matching result file appears in `.agent/results`, mark the task complete.
 
-1. **現在の状態読取**: `c:\AI\Agent\.agent\task.md` を読み込み、現在実行可能なタスクを特定します。
-2. **指示書の作成**: 担当エージェントごとに、実行すべき具体的なプロンプトを構築します。
-3. **オーダー発行**:
-   構築したプロンプトをMarkdownファイルとして `c:\AI\Agent\.agent\orders\` フォルダ内に出力します。
-   - ファイル名規則：`[担当エージェント名]_[タスクID].md` （例：`claude_1.md`, `gemini_setup.md`）
-4. **状態の更新**: `task.md` の対象タスクを「`[/]` (実行中：オーダー発行済)」に更新します。
-5. **通知**: オーダーの発行が完了したことをユーザーに通知します。待機中の各エージェントは自動的にファイルを拾って処理を開始します。
+## Dynamic dispatch
+1. A running agent submits a request file to `.agent/requests` with `python .agent/scripts/submit_dispatch.py`.
+2. The orchestrator converts the request into request state under `.agent/state`.
+3. Each child subtask is dispatched to the requested agent when its dependencies are satisfied.
+4. After all child tasks finish, the orchestrator writes a summary file to `.agent/results`.
+5. If a callback was requested, the orchestrator dispatches a callback task to the callback agent so the parent flow can resume.

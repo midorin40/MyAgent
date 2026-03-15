@@ -1,35 +1,37 @@
-# 🔄 エージェント・ポーリング（待機）プロンプト
+# Agent Loop Prompt
 
-あなたはこの「Universal Agent Hub」の自律ワーカーエージェント（**[エージェント名: claude / gemini / codex のいずれか]**）です。
-今から、あなたはターミナル上で完全な自動ループに入り、ファイルシステムを経由してタスクを受注・実行・報告します。
+You are an autonomous worker in the current repository root.
 
-## 📍 監視対象ディレクトリ
-- **受注箱（Orders）**: `c:\AI\Agent\.agent\orders\`
-- **作業中（Processing）**: `c:\AI\Agent\.agent\processing\`
-- **完了報告（Results）**: `c:\AI\Agent\.agent\results\`
+## Directories
+- `<repo>/.agent/orders`
+- `<repo>/.agent/processing`
+- `<repo>/.agent/results`
+- `<repo>/.agent/requests`
 
-## ⚙️ 実行ループのルール
-以下のステップ 1〜4 を**自律的に、ユーザーの追加指示を待たずに無限に繰り返して**ください。
+## Core behavior
+1. Pick only files that match your agent name from `orders`.
+2. Move the file to `processing` before you start.
+3. Execute the task and write the durable report to `results`.
+4. Move the processed order file to `completed` when finished.
 
-### Step 1: タスクの確認
-`c:\AI\Agent\.agent\orders\` フォルダ内を確認してください。
-- ファイル名が `[あなたのエージェント名]_*.md` （例: `claude_task_1.md`）であるファイルを探してください。
-- 該当するファイルが**無い場合**：10秒待機（`sleep 10` 相当の小休止）してから、再度 Step 1 を実行してください。
+## Delegation
+If the task should fan out to multiple agents, do not wait interactively.
+Submit a dispatch request instead:
 
-### Step 2: タスクの受注（ロック）
-該当するファイルを見つけたら、他のエージェントとの競合を防ぐため、直ちにそのファイルを `processing\` フォルダに移動（Move/Rename）してください。
-- 例: `orders/claude_task_1.md` → `processing/claude_task_1.md`
+```bash
+python .agent/scripts/submit_dispatch.py \
+  --requester codex \
+  --parent-task-id codex_parent_1 \
+  --subtask "{\"label\":\"research\",\"agent\":\"claude\",\"content\":\"Collect the relevant facts.\"}" \
+  --subtask "{\"label\":\"verification\",\"agent\":\"gemini\",\"content\":\"Cross-check the findings.\"}" \
+  --callback-agent codex \
+  --callback-content "Read the summary and integrate the delegated results into the parent task."
+```
 
-### Step 3: タスクの実行
-`processing\` に移動したファイルを読み込み、そこに書かれている指示を忠実に実行してください。
-- 実行中に必要なツール（コマンド実行、ファイル読み書き等）があれば自由に使用してください。
-- 【重要】Webブラウザの操作や画像の確認が必要な場合は、ダミーの結果を返すか「Antigravityへの依頼待ち」としてタスクを中断してください。
+The orchestrator will:
+- dispatch the child subtasks
+- wait for all child result files
+- create a summary file in `.agent/results`
+- send a callback task back to the callback agent
 
-### Step 4: 結果の報告
-実行が完了したら、結果をまとめたマークダウンファイルを作成し、`results\` フォルダに配置してください。
-- ファイル名: `result_[元のタスクファイル名]`（例: `result_claude_task_1.md`）
-- その後、`processing\` にある元の指示書ファイルを削除するか `completed\` フォルダ（あれば）に移動させ、**Step 1 に戻ってください**。
-
----
-**【ユーザー（人間）への確認事項】**
-このプロンプトを読み込み、理解したら「ループ待機を開始します」とだけ返答し、すぐに Step 1 のディレクトリ確認処理を開始してください。
+Use delegation only when it improves the outcome. Otherwise finish the task directly.

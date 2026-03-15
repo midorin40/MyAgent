@@ -1,104 +1,140 @@
-# 🪐 Universal Agent Hub
+# Universal Agent Hub
 
-**AIエージェントの自律型オフィス環境テンプレート**
+`claude`、`gemini`、`codex` を対象にした、ファイルベースのマルチエージェント実行テンプレートです。
 
-Claude Code・Gemini CLI・Codex CLI の3エージェントが、ファイルベースの非同期連携（deer-flow方式）で自律的にタスクをリレーするための環境です。
+このリポジトリは再利用前提です。制御プレーンは `.agent/` に集約し、`OpenSandbox/` と `deer-flow/` を同居させることで、新しい環境でも同じ構成を再現できるようにしています。
 
----
+## 概要
+- `.agent/task.md` から静的タスクを配布できる
+- `.agent/requests/*.json` 経由で動的にサブタスクを委譲できる
+- 子タスク完了後に callback タスクを再投入できる
+- ログ、成果物、状態ファイルを `.agent/` 以下に集約できる
 
-## ✨ 特徴
-
-- **マルチエージェント連携**: 複数のAIエージェントが `orders/` → `results/` のフォルダを介して自動バトンパス
-- **OpenSandbox**: Docker コンテナによる安全なコード実行環境
-- **完全自走モード**: PowerShell ポーリングスクリプトにより、人間の介入なしで 24 時間稼働
-- **テンプレート化済**: `bootstrap.sh` 一発で新規環境を構築可能
-
----
-
-## 🚀 クイックスタート
-
-### 1. リポジトリのクローン
-
+## クイックスタート
 ```bash
-git clone <this-repo-url>
-cd Agent
+agent setup
 ```
 
-### 2. 環境のブートストラップ
+このコマンドで以下をまとめて実行します。
+1. `.agent/` の不足ディレクトリとプレースホルダを作成
+2. ローカル環境と必須リポジトリのチェック
+3. 環境固有のセットアップガイド生成
+
+## `agent` コマンド
+このリポジトリにはローカル実行用の `agent` エントリポイントが入っています。
+
+- Windows: `agent.cmd`
+- POSIX シェル: `./agent`
+- Python 直実行: `python agent.py`
+
+主なコマンド:
+- `agent setup`
+- `agent setup --with-sandbox`
+- `agent check`
+- `agent guide`
+- `agent orchestrator`
+- `agent orchestrator --once`
+- `agent loop codex`
+- `agent loop claude`
+- `agent loop gemini`
+
+## 初期セットアップ
+新しい環境では、まず必要リポジトリを配置してから `agent setup` を実行します。
 
 ```bash
-bash .agent/bootstrap.sh
+git clone https://github.com/alibaba/OpenSandbox.git
+git clone https://github.com/bytedance/deer-flow.git
+agent setup
 ```
 
-### 3. OpenSandbox の構築（任意）
+OpenSandbox 補助チェックも続けて回したい場合:
 
 ```bash
-python .agent/scripts/setup_sandbox.py
+agent setup --with-sandbox
 ```
 
-### 4. オーケストレーターの起動
+## 実行方法
+オーケストレータを起動:
 
 ```bash
-python .agent/orchestrator.py
+agent orchestrator
 ```
 
-### 5. エージェント監視ループの起動（各ターミナルで）
+1 サイクルだけ実行:
+
+```bash
+agent orchestrator --once
+```
+
+各 worker loop は別ターミナルで起動:
 
 ```powershell
-# Claude Code
-powershell -ExecutionPolicy Bypass -File .agent/claude_agent_loop.ps1
-
-# Gemini CLI
-powershell -ExecutionPolicy Bypass -File .agent/gemini_agent_loop.ps1
-
-# Codex CLI
-powershell -ExecutionPolicy Bypass -File .agent/codex_agent_loop.ps1
+agent loop codex
+agent loop claude
+agent loop gemini
 ```
 
-### 6. タスクの投入
+各 loop はスクリプト自身の位置からリポジトリルートを解決します。CLI 名が環境ごとに違う場合は、`CLAUDE_CMD`、`GEMINI_CMD`、`CODEX_CMD` で上書きできます。
 
-`.agent/task_template.md` を `.agent/task.md` にコピーして編集し、サブタスクを定義します。
-オーケストレーターが自動的に依存関係を解析し、各エージェントに指示書を配布します。
+## ワークスペース設定
+テンプレートは [`.agent/workspace.json`](/C:/AI/Agent/.agent/workspace.json) を優先し、存在しない場合は [`.agent/workspace.template.json`](/C:/AI/Agent/.agent/workspace.template.json) を読みます。
 
----
+ここで定義するもの:
+- 各ツールのコマンド名
+- 同居させるリポジトリ
+- 必須リポジトリか任意リポジトリか
+- セットアップガイドに出す clone 元 URL
 
-## 📂 ディレクトリ構成
+現在の設定では以下を必須にしています。
+- `OpenSandbox`: `https://github.com/alibaba/OpenSandbox.git`
+- `deer-flow`: `https://github.com/bytedance/deer-flow.git`
 
+## 主要ディレクトリ
+- `.agent/orders`: 配布待ちタスク
+- `.agent/processing`: 実行中タスク
+- `.agent/results`: 結果レポートと summary
+- `.agent/requests`: 動的委譲リクエスト
+- `.agent/state`: 動的委譲の状態管理
+- `.agent/artifacts`: ログ、下書き、画面キャプチャ、環境レポート
+- `OpenSandbox/`: サンドボックス実行基盤
+- `deer-flow/`: ワークフロー設計の参照実装
+
+## 生成されるファイル
+`agent setup` や `agent check` を実行すると、以下が更新されます。
+
+- 環境レポート: [`.agent/artifacts/logs/environment_report.json`](/C:/AI/Agent/.agent/artifacts/logs/environment_report.json)
+- セットアップガイド: [`.agent/artifacts/logs/setup_guide.md`](/C:/AI/Agent/.agent/artifacts/logs/setup_guide.md)
+
+## OpenSandbox
+`OpenSandbox/` が存在する場合、このテンプレートはそれをサンドボックス実行基盤の参照として扱います。上流の最小起動手順は以下です。
+
+```bash
+uv pip install opensandbox-server
+opensandbox-server init-config ~/.sandbox.toml --example docker
+opensandbox-server
 ```
-.agent/
-├── orchestrator.py          # 司令塔（タスク監視 & 指示書生成）
-├── bootstrap.sh             # 環境セットアップスクリプト
-├── task_template.md          # タスク定義テンプレート
-├── agent_loop_prompt.md      # エージェント監視ループ用プロンプト
-├── claude_agent_loop.ps1     # Claude Code 自走スクリプト
-├── gemini_agent_loop.ps1     # Gemini CLI 自走スクリプト
-├── codex_agent_loop.ps1      # Codex CLI 自走スクリプト
-├── scripts/
-│   └── setup_sandbox.py      # OpenSandbox 構築スクリプト
-├── skills/
-│   └── multi-agent-browser-sync/  # ブラウザ連携スキル
-├── workflows/
-│   ├── dispatch.md           # /dispatch ワークフロー
-│   ├── plan.md               # /plan ワークフロー
-│   └── status.md             # /status ワークフロー
-├── orders/                   # エージェントへの指示書（自動生成）
-├── processing/               # 処理中タスク（一時）
-├── results/                  # 完了した成果物
-├── completed/                # アーカイブ済みタスク
-├── logs/                     # 実行ログ
-└── artifacts/
-    ├── drafts/               # 記事等の下書き
-    ├── screen/               # スクリーンショット
-    ├── logs/                 # アーティファクトログ
-    └── questions/            # エージェントからの質問
+
+詳細は [OpenSandbox/README.md](/C:/AI/Agent/OpenSandbox/README.md) を参照してください。
+
+## 動的委譲
+エージェントは `submit_dispatch.py` を使って複数エージェントへサブタスクを配布できます。
+
+```bash
+python .agent/scripts/submit_dispatch.py \
+  --requester codex \
+  --parent-task-id codex_parent_1 \
+  --subtask "{\"label\":\"research\",\"agent\":\"claude\",\"content\":\"Collect the relevant facts.\"}" \
+  --subtask "{\"label\":\"verify\",\"agent\":\"gemini\",\"content\":\"Cross-check the findings.\"}" \
+  --callback-agent codex \
+  --callback-content "Read the summary and integrate the delegated outputs."
 ```
 
----
+オーケストレータは以下を行います。
+- 子タスクを各 agent に配布
+- 全結果ファイルを待機
+- summary を `.agent/results/` に生成
+- callback 指定があれば親フロー用タスクを再投入
 
-## 🔗 関連リンク
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview)
-- [Gemini CLI](https://github.com/google-gemini/gemini-cli)
-- [Codex CLI](https://github.com/openai/codex)
-- [deer-flow](https://github.com/bytedance/deer-flow)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+## 補足
+- Windows では `codex exec` が権限不足で失敗する場合があります。その場合は `Codex CLI` を実行できる権限のあるコンテキストで worker を起動してください。
+- 新しい環境へ持っていく場合は、まず `workspace.json` を調整し、その後に `agent setup` を実行するのが最短です。

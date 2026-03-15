@@ -13,8 +13,16 @@ orders/*
 !orders/.gitkeep
 processing/*
 !processing/.gitkeep
-results/*
-!results/.gitkeep
+requests/*
+!requests/.gitkeep
+!requests/processed/
+requests/processed/*
+!requests/processed/.gitkeep
+state/*
+!state/.gitkeep
+results/result_*.md
+results/request_*.md
+results/manual_*.md
 
 # --- Artifacts (keep structure, ignore contents) ---
 artifacts/screen/*

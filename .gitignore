@@ -9,6 +9,7 @@ Sandbox.Dockerfile
 
 # OpenSandbox runtime (built by setup_sandbox.py)
 OpenSandbox/
+deer-flow/
 
 # Node
 node_modules/

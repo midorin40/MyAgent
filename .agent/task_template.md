@@ -1,22 +1,21 @@
-# マルチエージェント実行計画（テンプレート）
+# Task Plan Template
 
-> このファイルは全エージェントが参照・更新する共有ステートです。
-> Antigravity（オーケストレーター）が Phase 0 で生成します。
+## Goal
+Describe the user-facing objective.
 
-## 指示
-<!-- ユーザーの元の指示をここに記載 -->
+## Mode
+- sequential
+- parallel
+- hybrid
 
-## 実行モード
-<!-- 直列 / 並列 / ハイブリッド -->
+## Tasks
 
-## サブタスク一覧
+| # | Task | Agent | Depends On | Status | Notes |
+|---|------|-------|------------|--------|-------|
+| 1 | Example task | claude | none | [ ] | |
 
-| # | サブタスク | 担当 | 依存 | 状態 | 備考 |
-|---|-----------|------|------|------|------|
-| 1 | (未定)    | -    | -    | [ ]  |      |
-
-## 成果物の格納先
-- スクリーンショット: `.agent/artifacts/screen/`
-- ログ: `.agent/artifacts/logs/`
-- 記事原稿: `.agent/artifacts/drafts/`
-- 質問: `.agent/artifacts/questions/`
+## Artifacts
+- Screenshots: `.agent/artifacts/screen/`
+- Logs: `.agent/artifacts/logs/`
+- Drafts: `.agent/artifacts/drafts/`
+- Questions: `.agent/artifacts/questions/`

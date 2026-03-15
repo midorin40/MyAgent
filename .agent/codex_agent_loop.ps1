@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$root = "C:\AI\Agent"
+$root = Split-Path -Parent $PSScriptRoot
 $ordersDir = Join-Path $root ".agent\orders"
 $processingDir = Join-Path $root ".agent\processing"
 $resultsDir = Join-Path $root ".agent\results"
@@ -9,14 +9,19 @@ $logDir = Join-Path $root ".agent\logs"
 $logFile = Join-Path $logDir "codex_agent_loop.log"
 $agentName = "codex"
 $pollSeconds = 10
+$codexCommand = if ($env:CODEX_CMD) { $env:CODEX_CMD } else { "codex" }
 
-New-Item -ItemType Directory -Force -Path $ordersDir, $processingDir, $resultsDir, $logDir | Out-Null
+New-Item -ItemType Directory -Force -Path $ordersDir, $processingDir, $resultsDir, $logDir, $completedDir | Out-Null
 
 function Write-LoopLog {
     param([string]$Message)
 
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Add-Content -Path $logFile -Value "[$timestamp] $Message"
+    try {
+        Add-Content -Path $logFile -Value "[$timestamp] $Message" -ErrorAction Stop
+    } catch {
+        Write-Host "[$timestamp] Log write failed: $($_.Exception.Message)"
+    }
 }
 
 function Get-NextTaskFile {
@@ -52,10 +57,13 @@ function Invoke-AgentTask {
         ""
         "Requirements:"
         "- Read and follow the task instructions from the task file content below."
-        "- Perform the requested work inside C:\AI\Agent."
+        "- Perform the requested work inside $root."
         "- Write the final task report to $resultFile."
         "- Keep the final console response brief because the report file is the durable output."
         "- If the task cannot be completed, still write a result report that explains the blocker."
+        "- If you need help from multiple agents, submit a dispatch request with python .agent/scripts/submit_dispatch.py."
+        "- Use repeated --subtask JSON arguments and set --callback-agent codex so the orchestrator re-queues an integration task for you."
+        "- Do not wait interactively for sibling tasks. Delegate and let the callback task continue the flow."
         ""
         "Task file content:"
         $taskBody
@@ -74,7 +82,7 @@ function Invoke-AgentTask {
 
     $previousErrorAction = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    & codex exec --skip-git-repo-check --full-auto -C $root -o $outputFile --json $prompt 2>&1 |
+    & $codexCommand exec --skip-git-repo-check --full-auto -C $root -o $outputFile --json $prompt 2>&1 |
         Tee-Object -FilePath $jsonLogFile -Append |
         Out-Null
     $ErrorActionPreference = $previousErrorAction

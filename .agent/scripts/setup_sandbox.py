@@ -1,60 +1,57 @@
-import os
+import shutil
 import subprocess
-import sys
-import time
+from pathlib import Path
 
-# OpenSandbox (Alibaba) サーバーの構築スクリプト
-# https://github.com/Alibaba/OpenSandbox 準拠
 
-def log(msg):
-    print(f"[*] {msg}", flush=True)
+ROOT = Path(__file__).resolve().parents[2]
+OPEN_SANDBOX_DIR = ROOT / "OpenSandbox"
 
-def run_cmd(cmd):
+
+def command_exists(name: str) -> bool:
+    return shutil.which(name) is not None
+
+
+def run(command: list[str]) -> tuple[bool, str]:
     try:
-        result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
-        return result.stdout
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Command failed: {cmd}\n{e.stderr}")
-        return None
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=True,
+        )
+        output = (completed.stdout or completed.stderr).strip()
+        return True, output
+    except Exception as exc:
+        return False, str(exc)
 
-def setup():
-    log("OpenSandbox 構築プロセスを開始します...")
 
-    # 1. Docker の確認
-    log("Docker の状態を確認中...")
-    docker_version = run_cmd("docker --version")
-    if not docker_version:
-        log("Docker がインストールされていないか、起動していません。Docker Desktop を起動してください。")
-        return
+def main() -> int:
+    print("OpenSandbox setup helper")
+    print(f"Workspace: {ROOT}")
+    print(f"OpenSandbox repo: {OPEN_SANDBOX_DIR}")
 
-    # 2. OpenSandbox イメージのプル
-    # 注: 公式イメージがない場合はビルドが必要だが、ここでは一般的なイメージまたは
-    # ユーザーが用意したベース環境（Python/Node）を使用する Dockerfile を作成する
-    log("Sandbox 用の隔離 Docker イメージを準備しています...")
-    
-    dockerfile_content = """FROM python:3.10-slim
-RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
-RUN pip install flask requests
-WORKDIR /workspace
-"""
-    with open("Sandbox.Dockerfile", "w") as f:
-        f.write(dockerfile_content)
-    
-    run_cmd("docker build -t lida-agent-sandbox -f Sandbox.Dockerfile .")
+    if OPEN_SANDBOX_DIR.exists():
+        print("- OpenSandbox repository: present")
+    else:
+        print("- OpenSandbox repository: absent")
 
-    # 3. サーバーコンテナの起動 (API経由でコードを受け取る想定)
-    # 本来の OpenSandbox は grpc インターフェースだが、
-    # ここでは簡易的な REST API ラッパー（または直接 docker exec）を使用する
-    log("Sandbox サーバーをバックグラウンドで起動します...")
-    
-    # 既存の同名コンテナがあれば削除
-    run_cmd("docker rm -f agent-sandbox-server")
-    
-    # コンテナを起動（ネットワーク、ファイルシステムを制限した状態を想定）
-    run_cmd("docker run -d --name agent-sandbox-server -v /var/run/docker.sock:/var/run/docker.sock lida-agent-sandbox tail -f /dev/null")
+    for tool in ("docker", "uv", "python"):
+        print(f"- {tool}: {'found' if command_exists(tool) else 'missing'}")
 
-    log("✅ OpenSandbox (lida-agent-sandbox) の準備が整いました。")
-    log("エージェントはこれから `docker exec agent-sandbox-server python script.py` を通じて安全に作業できます。")
+    if command_exists("docker"):
+        ok, detail = run(["docker", "--version"])
+        print(f"- docker version: {detail if ok else 'unavailable'}")
+
+    print("")
+    print("Recommended next steps:")
+    print("  1. uv pip install opensandbox-server")
+    print("  2. opensandbox-server init-config ~/.sandbox.toml --example docker")
+    print("  3. opensandbox-server")
+    print("  4. Read OpenSandbox/README.md for SDK and runtime examples")
+    return 0
+
 
 if __name__ == "__main__":
-    setup()
+    raise SystemExit(main())

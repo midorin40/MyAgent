@@ -1,0 +1,27 @@
+{
+  "workspace_name": "Agent",
+  "tools": {
+    "python": "python",
+    "uv": "uv",
+    "docker": "docker",
+    "claude": "claude",
+    "gemini": "gemini",
+    "codex": "codex"
+  },
+  "repositories": [
+    {
+      "name": "OpenSandbox",
+      "path": "OpenSandbox",
+      "required": true,
+      "purpose": "Sandbox runtime and examples",
+      "source_url": "https://github.com/alibaba/OpenSandbox.git"
+    },
+    {
+      "name": "deer-flow",
+      "path": "deer-flow",
+      "required": true,
+      "purpose": "Reference repo for file-based multi-agent workflow patterns",
+      "source_url": "https://github.com/bytedance/deer-flow.git"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$root = "C:\AI\Agent"
+$root = Split-Path -Parent $PSScriptRoot
 $ordersDir = Join-Path $root ".agent\orders"
 $processingDir = Join-Path $root ".agent\processing"
 $resultsDir = Join-Path $root ".agent\results"
@@ -9,13 +9,18 @@ $logDir = Join-Path $root ".agent\logs"
 $logFile = Join-Path $logDir "gemini_agent_loop.log"
 $agentName = "gemini"
 $pollSeconds = 10
+$geminiCommand = if ($env:GEMINI_CMD) { $env:GEMINI_CMD } else { "gemini" }
 
 New-Item -ItemType Directory -Force -Path $ordersDir, $processingDir, $resultsDir, $logDir, $completedDir | Out-Null
 
 function Write-LoopLog {
     param([string]$Message)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Add-Content -Path $logFile -Value "[$timestamp] $Message"
+    try {
+        Add-Content -Path $logFile -Value "[$timestamp] $Message" -ErrorAction Stop
+    } catch {
+        Write-Host "[$timestamp] Log write failed: $($_.Exception.Message)"
+    }
     Write-Host "[$timestamp] $Message"
 }
 
@@ -42,6 +47,10 @@ function Invoke-AgentTask {
         "Task file path: $($TaskFile.FullName)"
         "Result file path: $resultFile"
         ""
+        "If you need other agents, use python .agent/scripts/submit_dispatch.py with repeated --subtask JSON blocks."
+        "Set --callback-agent gemini and provide --callback-content so the orchestrator sends you a follow-up task after all subtasks finish."
+        "Do not wait interactively for delegated work."
+        ""
         "Task file content:"
         $taskBody
     ) -join "`n"
@@ -52,10 +61,7 @@ function Invoke-AgentTask {
 
     $previousErrorAction = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    
-    # Run Gemini with the prompt text
-    & gemini $prompt 2>&1 | Tee-Object -FilePath $outputFile | Out-Null
-    
+    & $geminiCommand $prompt 2>&1 | Tee-Object -FilePath $outputFile | Out-Null
     $ErrorActionPreference = $previousErrorAction
     $exitCode = $LASTEXITCODE
 
@@ -75,9 +81,8 @@ function Invoke-AgentTask {
         Set-Content -Path $resultFile -Value $failureReport -Encoding UTF8
         return $false
     }
-    
+
     if (-not (Test-Path -Path $resultFile)) {
-        # Fallback if Gemini didn't create the file itself
         $fallbackReport = @(
             "# Task Result"
             "- Status: completed_without_report"
@@ -93,7 +98,7 @@ function Invoke-AgentTask {
     return $true
 }
 
-Write-LoopLog "Gemini agent loop starting... Waiting for tasks in orders/ directory."
+Write-LoopLog "Gemini agent loop starting"
 
 while ($true) {
     try {
@@ -102,6 +107,7 @@ while ($true) {
             Start-Sleep -Seconds $pollSeconds
             continue
         }
+
         $success = Invoke-AgentTask -TaskFile $taskFile
         if ($success) {
             Move-Item -Path $taskFile.FullName -Destination (Join-Path $completedDir $taskFile.Name) -Force
